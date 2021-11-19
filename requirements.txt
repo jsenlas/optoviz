@@ -1,2 +1,3 @@
 nose
 sphinx
+h5py

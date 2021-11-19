@@ -12,13 +12,13 @@ with open('LICENSE') as f:
     license = f.read()
 
 setup(
-    name='sample',
-    version='0.1.0',
-    description='Sample package for Python-Guide.org',
+    name='optoviz',
+    version='0.0.0',
+    description='Visualizer for spectrum data from optical cables',
     long_description=readme,
-    author='Kenneth Reitz',
-    author_email='me@kennethreitz.com',
-    url='https://github.com/kennethreitz/samplemod',
+    author='Jakub Sencak',
+    author_email='xsenca00@vut.cz',
+    url='https://github.com/jsenlas/optoviz',
     license=license,
     packages=find_packages(exclude=('tests', 'docs'))
 )
