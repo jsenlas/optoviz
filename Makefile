@@ -3,3 +3,5 @@ init:
 
 test:
 	nosetests tests
+envne:
+	python3 -m venv env

@@ -1,3 +1,7 @@
 nose
-sphinx
 h5py
+numpy
+scipy
+argparse
+mkdocs
+mkdocs-material
