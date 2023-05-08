@@ -1,7 +1,7 @@
 # import numpy as np
 from json import dumps
 from asyncio import Event, create_task, wait, sleep
-from .file_reader import Buffer
+from .file_reader import Buffer, DASHDF5FileReader
 
 
 class Stream:
@@ -18,11 +18,9 @@ class Stream:
         if not self.streaming_task or self.streaming_task.cancelled:
             self.streaming_task = create_task(self.stream_data())
 
-    def open_stream(self, content):
-        self.content = content
+    def open_stream(self):
         self.streaming_wait_event.clear()
         self._create_stream_task()
-        print("Stream opened")
 
     def start_streaming(self):
         self.streaming_wait_event.set()
@@ -41,15 +39,23 @@ class Stream:
             self.pause_streaming()
         elif self.state == "stop":
             self.stop_streaming()
+    
+    def generator_init(self, filename, datasetname, selected_channels):
+        self.filename = filename
+        self.datasetname = datasetname
+        self.selected_channels = selected_channels
+        self.reader = DASHDF5FileReader(filename, datasetname)
+        self.reader.preprocess()
+
 
     async def stream_data(self):
-
-        # self.file_reader.read_dataset()
-        # self.file_reader.content
-        while True:
+        # while True:
+        print("Stream opened")
+        # async for msg in self.reader.read_dataset(self.datasetname, self.selected_channels):
+        async for msg in self.reader.read_dataset_v2():
             # ensures that scheduler has time to check received messages
             # so that sending data does not block receiving messages
-            await sleep(1) # TODO set to 0
+            await sleep(0.01) # TODO set to 0
 
             if not self.streaming_wait_event.is_set():
                 await self.websocket.send(
@@ -58,13 +64,8 @@ class Stream:
                 }))
                 print("Stream waiting for an event...")
             await self.streaming_wait_event.wait()
-            print("Streaming")
-            await self.websocket.send(
-                dumps({
-                    "type": "data",
-                    "data": self.get_data()
-            }))
-            self.increment_content_index()
+            print(".", end="")
+            await self.websocket.send(msg)
 
     def stop_streaming(self):
         self.streaming_wait_event.clear()
@@ -72,11 +73,3 @@ class Stream:
             self.streaming_task.cancel()
             print("Streaming task stopped")
         print("Stream stopped")
-
-    def increment_content_index(self):
-        self.content_i += 1
-
-    def get_data(self):
-        return self.buffer.generate_content()[0]  # TODO
-        # print(self.content[self.content_i])
-        # return self.content[self.content_i]
