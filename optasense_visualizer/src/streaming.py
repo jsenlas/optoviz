@@ -44,7 +44,7 @@ class Stream:
         self.filename = filename
         self.datasetname = datasetname
         self.selected_channels = selected_channels
-        self.reader = DASHDF5FileReader(filename, datasetname)
+        self.reader = DASHDF5FileReader(filename, datasetname, selected_channels)
         self.reader.preprocess()
 
 

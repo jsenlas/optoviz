@@ -5,7 +5,7 @@ import numpy as np
 from json import dumps
 from re import match
 from tqdm import tqdm
-import datetime
+from datetime import datetime
 from random import randint
 from asyncio import Event, create_task, wait, sleep
 from .range_parser import parse_channel_range
@@ -93,9 +93,10 @@ class NotDatasetError(Exception):
 
 
 class DASHDF5FileReader:
-    def __init__(self, filename, datasetname) -> None:
+    def __init__(self, filename, datasetname, selected_channels="all") -> None:
         self.filename = filename
         self.dataset_path = datasetname
+        self.selected_channels = selected_channels
         self.opened_file_name = ""
         self.min = 0
         self.max = 1000
@@ -134,7 +135,7 @@ class DASHDF5FileReader:
 
             return [dataset for dataset in dataset_path_set
                     if isinstance(f.get(dataset), h5py._hl.dataset.Dataset)]
-
+ 
     # def read_dataset(self, dataset_path, selected_channels_str) -> np.array:
     #     self._create_task()
     #     with h5py.File(self.filename, 'r+') as fptr:
@@ -198,38 +199,26 @@ class DASHDF5FileReader:
                     yield data
 
     def preprocess(self):
-        if os.path.isfile(self.processed_file_name):
-            print("The preprocessed file already exists.\nSkipping the preprocess stage...")
-            return
-        nnnn = ""
-        outdata = np.array([])
-        for data in self.dataset_reading_generator(read_all=True):
-            print("PREPROCESS", data)
-            print("PREPROCESS", data.shape)
-            outdata = spectral_analysis(data, self.pulse_rate)
-            print("PROCESSING DONE", outdata.shape)
-            # print(out.dtype)
-            # print(type(out))
-            # outdata = np.array(outdata, out)
+        with h5py.File(self.filename, 'r+') as fptr:
+            dataset = fptr.get(self.dataset_path)
+            self.pulse_rate = fptr['Acquisition'].attrs['PulseRate']
             
-            # # working
-            # outdata = np.array(data, dtype=np.float64)
-            # # outdata = outdata[:self.DECIMATE,:]
-            # outdata -= np.median(outdata, axis=0)
-            
-            # self.min = np.min(outdata)
-            # self.max = np.max(outdata)
-            
-            # outdata = np.interp(outdata, (self.min, self.max), (0,1000))
-            # outdata = np.rint(outdata)
+            if os.path.isfile(self.processed_file_name):
+                print("The preprocessed file already exists.\nSkipping the preprocess stage...")
+                return
 
-            # print("OUTDATA", outdata)
-            # print(outdata.shape)
-            # # working
-        # with open(self.processed_file_name, 'wb') as fp:
-        print(f"Saving preprocessed file into {self.processed_file_name}")
-        np.save(self.processed_file_name, outdata)
-        # print("FILESIZE", os.stat(fp.name).st_size)
+            print("BEFORE", datetime.now())
+            # for data in dataset:
+            #     print("PREPROCESS", data)
+            #     print("PREPROCESS", data.shape)
+            data = np.array(dataset, dtype=np.float32)
+            data = spectral_analysis(data, self.pulse_rate)
+                # print("PROCESSING DONE", data.shape)
+            print("AFTER", datetime.now())
+            # with open(self.processed_file_name, 'wb') as fp:
+            print(f"Saving preprocessed file into {self.processed_file_name}")
+            np.save(self.processed_file_name, data)
+            # print("FILESIZE", os.stat(fp.name).st_size)
 
     # async def read_preprocessed_file
 
@@ -247,20 +236,41 @@ class DASHDF5FileReader:
 
             print("NP loaded")
             print("SHAPE", all_data.shape)
+            print("Selected channels", self.selected_channels)
             all_data = np.interp(all_data, (self.min, self.max), (0,1000))
             all_data = np.rint(all_data)
-            yield dumps({
-                "type": "properties",
-                "min": 0,
-                "max": 1000,
-                "number_of_channels": all_data.shape[1],
-                "number_of_rows": all_data.shape[0]
-            })
-            for data in all_data:
+            if self.selected_channels != "all":
+                selected_channels_list = parse_channel_range(self.selected_channels)
+                all_data = all_data[:, selected_channels_list]
+                print(all_data.shape)
                 yield dumps({
-                    "type" : "data",
-                    "data" : data.tolist(),
+                    "type": "properties",
+                    "min": 0,
+                    "max": 1000,
+                    "number_of_channels": all_data.shape[1],
+                    "number_of_rows": all_data.shape[0]
                 })
+                for data in all_data:
+                    yield dumps({
+                        "type" : "data",
+                        "data" : data.tolist(),
+                    })
+            else:
+                yield dumps({
+                    "type": "properties",
+                    "min": 0,
+                    "max": 1000,
+                    "number_of_channels": all_data.shape[1],
+                    "number_of_rows": all_data.shape[0]
+                })
+                for data in all_data:
+                    yield dumps({
+                        "type" : "data",
+                        "data" : data.tolist(),
+                    })
+            yield dumps({
+                "type" : "end",
+            })
 
     async def read_dataset(self, dataset_path, selected_channels_str):
         if selected_channels_str:

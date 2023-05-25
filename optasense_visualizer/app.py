@@ -8,7 +8,7 @@ from datetime import datetime as dt
 from argparse import ArgumentParser
 from random import randint
 from src.optasense_server import Server
-from src.message_classes import FindFiles, OpenFile, Streaming, Properties, InitApp, ChannelSelection, MessageFactory, UnknownMessageException
+from src.message_classes import FindFiles, OpenFile, Streaming, Properties, InitApp, ChannelSelection, MessageFactory, ExportToWAV, UnknownMessageException
 
 async def handler(websocket):
     """ Handling receiving packets """
@@ -39,7 +39,7 @@ async def handler(websocket):
             with contextlib.suppress(AttributeError):
                 if backend.state.datasetname:
                     backend.dataset_name = backend.state.datasetname
-            backend.open_file(backend.state.filename)
+            backend.open_file(backend.state.filename, backend.state.selected_channels)
             if not backend.dataset_name:
                 print(backend.dataset_path_list)
                 event = {
@@ -57,6 +57,8 @@ async def handler(websocket):
             else:
                 print("No file opened.")
                 await websocket.send(json.dumps({"warning": "No file opened."}))
+        if isinstance(backend.state, ExportToWAV):
+            pass
 
 
 def parse_args():

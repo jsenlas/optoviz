@@ -23,7 +23,7 @@ class MessageFactory:
         if type == "openfile":
             return OpenFile(message["filename"], 
                             message.get("datasetname", ""), 
-                            message.get("selected_channels", "all"))
+                            message.get("channel_selection", "all"))
         if type == "stream":
             return Streaming(message.get("value"))
         if type == "properties":
@@ -33,7 +33,8 @@ class MessageFactory:
             return InitApp(message.get("message"))
         if type == "channel_selection":
             return ChannelSelection(message.get("channel_selection"))
-        
+        if type == "wav":
+            return ExportToWAV(message.get("export"))
         raise UnknownMessageException(type, message)
 
 
@@ -65,3 +66,7 @@ class Properties:
 @dataclass
 class ChannelSelection:
     selected_channels: str
+
+@dataclass
+class ExportToWAV:
+    channel_to_wav: str
